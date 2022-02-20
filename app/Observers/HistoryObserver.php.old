@@ -1,0 +1,110 @@
+<?php
+
+namespace App\Observers;
+
+use App\Models\History;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+
+
+class HistoryObserver
+{
+    /**
+     * Handle the History "created" event.
+     *
+     * @param  \App\Models\History  $history
+     * @return void
+     */
+    public function created(History $history)
+    {
+        $configFile = base_path(env('BOT_DESTINATION')) . $history->user->id . '-rssbot/bot_config.php';
+        //dd($configFile);
+        if(File::exists($configFile . '.tmp')){
+            File::delete($configFile . '.tmp');
+            // shell_exec("sudo rm ". $configFile . '.tmp');
+        }
+        File::copy($configFile, $configFile . '.tmp');
+        File::delete($configFile);
+        // shell_exec("sudo cp ". $configFile . " " . $configFile . ".tmp");
+        // shell_exec("sudo rm ". $configFile);
+        $pidFile = base_path(env('BOT_DESTINATION')) . $history->user->id . '-rssbot/bot.pid';
+        //dd($configFile);
+        if(File::exists($pidFile)){
+            shell_exec("kill -9 `cat $pidFile`");
+            File::delete($pidFile);
+            // shell_exec("sudo rm ". $pidFile);
+        }
+        // write config
+        // shell_exec("sudo touch ". $configFile);
+        // shell_exec("sudo chmod 777 ". $configFile);
+        foreach (file($configFile . '.tmp') as $line) {
+            //dd($line);
+            if (strpos($line, '$attesa = ') !== false) {
+                $package = $history['package'];
+                //File::append($configFile, '$attesa = ' .  ($package == 'free' ? env('BOT_FREE') : env('BOT_PREMIUM'))  . ';' . "\n");
+                //$insLine = '\$attesa = ' .  ($package == 'free' ? env('BOT_FREE') : env('BOT_PREMIUM'))  . ';' . "\n";
+                $insLine = '$attesa = ' .  ($package == 'free' ? env('BOT_FREE') : env('BOT_PREMIUM'))  . ';' . "\n";
+            } else {
+                //dd($configFile);
+                //File::append($configFile, $line);
+                //dd('sudo echo "' . $line . '" >> ' . $configFile);
+                $insLine = $line;
+            }
+            File::append($configFile, $insLine);
+            //shell_exec('sudo echo "' . $insLine . '" >> ' . $configFile);
+
+        }
+        //dd($history->user()->get()->toArray()[0]['id']);
+        $telegram = \App\Models\Telegram::where(['user_id' => $history->user->id])->first();
+        //dd(env('BOT_DEFAULT_CHANNEL') . '-' . env('BOT_DEFAULT_RSS'));
+        //dd($telegram->channel . '-' . $telegram->rss);
+        if ($telegram->channel !== env('BOT_DEFAULT_CHANNEL') && $telegram->rss !== env('BOT_DEFAULT_RSS')) {
+            $botFile = base_path(env('BOT_DESTINATION')) . $history->user->id . '-rssbot/bot.php';
+            shell_exec("php $botFile  > /dev/null 2>/dev/null &");
+        }
+    }
+
+    /**
+     * Handle the History "updated" event.
+     *
+     * @param  \App\Models\History  $history
+     * @return void
+     */
+    public function updated(History $history)
+    {
+        //
+    }
+
+    /**
+     * Handle the History "deleted" event.
+     *
+     * @param  \App\Models\History  $history
+     * @return void
+     */
+    public function deleted(History $history)
+    {
+        //
+    }
+
+    /**
+     * Handle the History "restored" event.
+     *
+     * @param  \App\Models\History  $history
+     * @return void
+     */
+    public function restored(History $history)
+    {
+        //
+    }
+
+    /**
+     * Handle the History "force deleted" event.
+     *
+     * @param  \App\Models\History  $history
+     * @return void
+     */
+    public function forceDeleted(History $history)
+    {
+        //
+    }
+}

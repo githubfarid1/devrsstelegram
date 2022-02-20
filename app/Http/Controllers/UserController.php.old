@@ -1,0 +1,144 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
+
+class UserController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
+    {
+        if (!auth()->user()->isAdmin()) {
+            return redirect()->to(route('home'));
+        }
+        $users = User::paginate(10);
+        return view('users.index', ['users' => $users]);
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        //
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        //
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  \App\Models\User  $user
+     * @return \Illuminate\Http\Response
+     */
+    public function show(User $user)
+    {
+        //
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  \App\Models\User  $user
+     * @return \Illuminate\Http\Response
+     */
+    public function edit(User $user)
+    {
+        //
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\User  $user
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, User $user)
+    {
+        //
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\Models\User  $user
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(User $user)
+    {
+        $user = User::findOrFail($user->id);
+        $user->delete();
+        session()->flash('success','Delete Success');
+        return redirect()->back();
+    }
+    public function process(User $user)
+    {
+        if ($user->telegram->channel == env('BOT_DEFAULT_CHANNEL') || $user->telegram->rss == env('BOT_DEFAULT_RSS')) {
+            session()->flash('warning','Process Failed because CHANNEL AND RSS have not been updated');
+            return redirect()->back();
+
+        }
+        $package = $user->histories()->latest()->limit(1)->get()->toArray()[0]['package'];
+        //dd($package);
+        if ($package == 'premium') {
+            \App\Models\History::create([
+                'user_id' => $user->id,
+                'note_at' => date("Y-m-d H:i:s"),
+                'package' => 'free',
+                'expired_at' => null,
+            ]);
+        } else {
+            $dt = strtotime('now');
+            \App\Models\History::create([
+                'user_id' => $user->id,
+                'note_at' => date("Y-m-d H:i:s"),
+                'package' => 'premium',
+                'expired_at' => date('Y-m-d', strtotime('+1 month', $dt)),
+            ]);
+        }
+        return redirect()->back();
+
+        // $configFileSource = base_path(env('BOT_TEMPLATE')) . 'bot_config.php';
+        // $configFile = base_path(env('BOT_DESTINATION')) . $user->id . '-rssbot/bot_config.php';
+        // $pidFile = base_path(env('BOT_DESTINATION')) . $user->id . '-rssbot/bot.pid';
+        // //dd($configFile);
+        // if(File::exists($configFile)){
+        //     File::delete($configFile);
+        // }
+        // if(File::exists($pidFile)){
+        //     shell_exec("kill -9 `cat $pidFile`");
+        //     File::delete($pidFile);
+        // }
+        // // write config
+        // foreach (file($configFileSource) as $line) {
+        //     if (strpos($line, '$attesa = ') !== false) {
+        //         $package = $telegram->user->histories()->latest()->limit(1)->get()->toArray()[0]['package'];
+        //         File::append($configFile, '$attesa = ' .  ($package == 'free' ? env('BOT_FREE') : env('BOT_PREMIUM'))  . ';' . "\n");
+        //     } else {
+        //         File::append($configFile, $line);
+        //     }
+        // }
+        // $botFile = base_path(env('BOT_DESTINATION')) . $user->id . '-rssbot/bot.php';
+        // shell_exec("php $botFile  > /dev/null 2>/dev/null &");
+
+    }
+}
